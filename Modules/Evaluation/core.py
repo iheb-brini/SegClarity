@@ -7,6 +7,7 @@ from typing import Callable, List
 from .tools import isNaN, pcc,pcc_cuda,jaccard_index,_fast_hist
 from torch.nn.functional import softmax
 from torch import clip
+import torch
 from captum.metrics import infidelity,sensitivity_max
 from Modules.Attribution import generateAttributions
 
@@ -93,7 +94,46 @@ class ADCCMetric(Metric):
         adcc= 0.0
 
       return adcc
-    
+class CompletenessMetric(Metric):
+    def __init__(self) -> None:
+        super().__init__('completeness')
+
+    def calculate(self, pred: torch.Tensor, pred_on_masked: torch.Tensor, target_class: int) -> float:
+        prob_orig = torch.softmax(pred, dim=0)[target_class, :, :]
+        prob_masked = torch.softmax(pred_on_masked, dim=0)[target_class, :, :]
+        avg_orig = prob_orig.mean().item()
+        avg_masked = prob_masked.mean().item()
+        completeness = max(0.0, avg_orig - avg_masked)
+        return completeness
+
+
+class PointingGameMetric(Metric):
+    def __init__(self) -> None:
+        super().__init__('pointing_game')
+
+    def calculate(self, saliency_map: torch.Tensor, gt_mask: torch.Tensor) -> float:
+        max_pos = torch.argmax(saliency_map)
+        h, w = saliency_map.shape
+        y, x = divmod(max_pos.item(), w)
+        return float(gt_mask[y, x] > 0)
+
+
+class FaithfulnessMetric(Metric):
+    def __init__(self) -> None:
+        super().__init__('faithfulness')
+
+    def calculate(self, saliency_map: torch.Tensor, drops: torch.Tensor) -> float:
+        saliency_flat = saliency_map.flatten()
+        drops_flat = drops.flatten()
+
+        if saliency_flat.numel() == 0 or drops_flat.numel() == 0:
+            return 0.0
+
+        corr_matrix = torch.corrcoef(torch.stack([saliency_flat, drops_flat]))
+        corr = corr_matrix[0, 1].item()
+        if torch.isnan(torch.tensor(corr)):
+            corr = 0.0
+        return corr
 
 ###############################
 from Modules.Utils import Normalizations
