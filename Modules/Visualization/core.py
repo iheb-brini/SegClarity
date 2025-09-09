@@ -225,7 +225,7 @@ def visualize_image(image_batch):
 
 
 
-def visualize_image_and_mask(image_batch,mask_batch,dataset_type='UTP',save_file=None):
+def visualize_image_and_mask(image_batch,mask_batch,dataset_type='UTP',fig = None, axes = None,save_file=None):
     if mask_batch.dim() == 3 and mask_batch.size(0) == 1:
         # Squeeze the mask_batch if it has a singleton dimension at the start
         mask = mask_batch.squeeze(0)
@@ -265,8 +265,14 @@ def visualize_image_and_mask(image_batch,mask_batch,dataset_type='UTP',save_file
     for i in range(len(cmap)):
         rgb_image[mask_np == i] = cmap[i]
 
-    fig,axes = plt.subplots(1,2)
     # Plot the image
+    if fig is None and axes is None:
+        fig,axes = plt.subplots(1,2)
+    # Plot the image
+
+    # Restore original image
+    image_batch  = ((image_batch.squeeze().detach().cpu() + 1) / 2)
+    image_batch  = image_batch * (image_batch.max() - image_batch.min()) + image_batch.min()
 
     axes[0].imshow(image_batch.squeeze().permute([1,2,0]).detach().cpu().numpy());axes[0].axis("off");axes[0].set_title('Image')
     axes[1].imshow(rgb_image);axes[1].axis("off");axes[1].set_title('Mask')
