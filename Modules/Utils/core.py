@@ -1,6 +1,6 @@
 import torch 
 from enum import Enum
-
+from skimage.filters import threshold_multiotsu
 
 def normalize_0_1(v):
     """
@@ -112,3 +112,29 @@ def clip_fixed_percentage(v, p=0.1, replace_with_zero=False):
         new_v[indices[-w:]] = x[-1 - w] if not replace_with_zero else 0
 
     return new_v.reshape(v.shape)
+
+
+def apply_otsu(attr):
+    attr_pos = torch.where(attr>0,attr,0)
+    attr_neg= torch.where(attr<0,attr,0)
+    threshold_pos,threshold_neg = None,None
+    if attr_pos.max()>0:
+        try:
+            threshold_pos = threshold_multiotsu(attr_pos.detach().cpu().numpy())
+        except:
+            threshold_pos = [attr_pos.max().item(),attr_pos.max().item()]
+        if threshold_pos[1]>=attr_pos.max():
+            attr_pos = torch.where(attr_pos>0,attr_pos,0)
+        else:
+            attr_pos = torch.where(attr_pos>threshold_pos[1],attr_pos,0)
+    if attr_neg.min()<0:
+        try:
+            threshold_neg = threshold_multiotsu(attr_neg.detach().cpu().numpy())
+        except:
+            threshold_neg = [attr_neg.min().item(),attr_neg.min().item()]
+        if threshold_neg[0]<=attr_neg.min():
+            attr_neg = torch.where(attr_neg<0,attr_neg,0)
+        else:
+            attr_neg = torch.where(attr_neg<threshold_neg[0],attr_neg,0)
+    attr_otsu = attr_pos + attr_neg
+    return attr_otsu,{'threshold_pos':threshold_pos,'threshold_neg':threshold_neg}

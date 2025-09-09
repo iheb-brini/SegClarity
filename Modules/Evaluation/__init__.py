@@ -3,6 +3,8 @@ from .core import (ComplexityMetric,
                    AverageDropMetric, AverageDropIoUMetric,
                    ADCCMetric,
                    SensitivityMax,
-                   compute_content_heatmap,compute_ACS)
+                   ACSMetric,
+                   CompletenessMetric, PointingGameMetric, FaithfulnessMetric,
+                   ContentHeatmapMetric)
 
 from .tools import calculate_explanation_map

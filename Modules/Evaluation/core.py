@@ -112,8 +112,12 @@ class PointingGameMetric(Metric):
         super().__init__('pointing_game')
 
     def calculate(self, saliency_map: torch.Tensor, gt_mask: torch.Tensor) -> float:
+        if saliency_map.shape[-2:] != gt_mask.shape[-2:]:
+            saliency_map = LayerAttribution.interpolate(
+                            saliency_map, gt_mask.squeeze().shape[-2:]
+                        )
         max_pos = torch.argmax(saliency_map)
-        h, w = saliency_map.shape
+        h, w = saliency_map.squeeze().shape
         y, x = divmod(max_pos.item(), w)
         return float(gt_mask[y, x] > 0)
 
@@ -148,111 +152,125 @@ normalizer_scaler = Normalizations.pick(Normalizations.normalize_scaler)
 # Content heatmap #
 ###################
 
-def compute_content_heatmap(attr,mask,target,normalizer=normalizer_scaler):
-    attr_normalized = normalizer(attr)
-    if attr_normalized.shape != mask.shape:
-        attr_normalized = LayerAttribution.interpolate(
-            attr_normalized, mask.squeeze().shape[-2:]
-        )
-    V = attr_normalized[0][mask==target]
-    V = normalizer_0_1(V)
-    if len(V) == 0:
-        return 0
-    
-    return V.sum().item() / (len(V))
+class ContentHeatmapMetric(Metric):
+    def __init__(self) -> None:
+        super().__init__('content_heatmap')
+
+    def calculate(self, attr : torch.Tensor, mask : torch.Tensor, target : int,normalizer : Callable = normalizer_scaler) -> float:
+        attr_normalized = normalizer(attr)
+        if attr_normalized.shape != mask.shape:
+            attr_normalized = LayerAttribution.interpolate(
+                attr_normalized, mask.squeeze().shape[-2:]
+            )
+        V = attr_normalized[0][mask==target]
+        if V.numel() == 0:
+            return 0
+        V = normalizer_0_1(V)
+        if len(V) == 0:
+            return 0
+        
+        return (V.sum() / (len(V))).clamp(0,1).item()
+
+
 
 
 ##########################
 # Attribution Similarity #
 ##########################
 
-def f_sum_attribution_advanced(V, sign="pos", **kwargs):
-    V_pos = V[V > 0]
-    V_pos_sum = V_pos.sum().item()
-    V_pos_len = len(V_pos)
+class ACSMetric(Metric):
+    def __init__(self) -> None:
+        super().__init__('acs')
 
-    V_neg = V[V < 0]
-    V_neg_sum = V_neg.sum().item()
-    V_neg_len = len(V_neg)
+    def _sum_attribution(self,V, sign="pos", **kwargs):
+        V_pos = V[V > 0]
+        V_pos_sum = V_pos.sum().item()
+        V_pos_len = len(V_pos)
 
-    V_zero = V[V == 0]
-    V_zero_len = len(V_zero)
+        V_neg = V[V < 0]
+        V_neg_sum = V_neg.sum().item()
+        V_neg_len = len(V_neg)
 
-    if sign == "pos":
-        score = V_pos_sum + V_neg_sum
-    elif sign == "neg":
-        score = -(V_pos_sum + V_neg_sum)
-    else:
-        raise Exception("Not implemented")
+        V_zero = V[V == 0]
+        V_zero_len = len(V_zero)
 
-    return score, {
-        "pos": round(V_pos_sum, 2),
-        "neg": round(V_neg_sum, 2),
-        "%pos": round((V_pos_len / (len(V))) * 100, 2),
-        "%neg": round((V_neg_len / (len(V))) * 100, 2),
-        "%zero": round((V_zero_len / (len(V))) * 100, 2),
-    }
+        if sign == "pos":
+            score = V_pos_sum + V_neg_sum
+        elif sign == "neg":
+            score = -(V_pos_sum + V_neg_sum)
+        else:
+            raise Exception("Not implemented")
 
-
-def get_component_info(attr, mask, c, sign="pos"):
-    if "pos" == sign:
-        V = attr[mask == c]
-    else:
-        V = attr[mask != c]
-
-    if len(V) == 0:
-        return 0
-    return f_sum_attribution_advanced(V, sign)
+        return score, {
+            "pos": round(V_pos_sum, 2),
+            "neg": round(V_neg_sum, 2),
+            "%pos": round((V_pos_len / (len(V))) * 100, 2),
+            "%neg": round((V_neg_len / (len(V))) * 100, 2),
+            "%zero": round((V_zero_len / (len(V))) * 100, 2),
+        }
 
 
-def compute_ACS(attr, mask, target):
-    attr_normalized = normalizer_no_shift(attr)
+    def get_component_info(self,attr, mask, c, sign="pos"):
+        if "pos" == sign:
+            V = attr[mask == c]
+        else:
+            V = attr[mask != c]
 
-    if attr_normalized.shape != mask.shape:
-        attr_normalized = LayerAttribution.interpolate(
-            attr_normalized, mask.squeeze().shape[-2:]
+        if len(V) == 0:
+            return 0, {"pos": 0, "neg": 0, "%pos": 0, "%neg": 0, "%zero": 0}
+        else:
+            return self._sum_attribution(V, sign)
+
+
+    def calculate(self,attr, mask, target):
+        attr_normalized = normalizer_no_shift(attr)
+
+        if attr_normalized.shape != mask.shape:
+            attr_normalized = LayerAttribution.interpolate(
+                attr_normalized, mask.squeeze().shape[-2:]
+            )
+
+        w_target = round(
+            len(mask[mask == target]) / (mask.shape[-1] * mask.shape[-2]) * 100, 2
         )
 
-    w_target = round(
-        len(mask[mask == target]) / (mask.shape[-1] * mask.shape[-2]) * 100, 2
-    )
+        # target score
+        score_target, info_target = self.get_component_info(
+            attr_normalized[0], mask, c=target, sign="pos"
+        )
 
-    # target score
-    score_target, info_target = get_component_info(
-        attr_normalized[0], mask, c=target, sign="pos"
-    )
+        TP, FP = info_target["pos"], abs(info_target["neg"])
 
-    TP, FP = info_target["pos"], abs(info_target["neg"])
+        # non target score
+        score_non_target, info_non_target = self.get_component_info(
+            attr_normalized[0], mask, c=target, sign="neg"
+        )
 
-    # non target score
-    score_non_target, info_non_target = get_component_info(
-        attr_normalized[0], mask, c=target, sign="neg"
-    )
+        TN, FN = abs(info_non_target["neg"]), info_non_target["pos"]
 
-    TN, FN = abs(info_non_target["neg"]), info_non_target["pos"]
+            
+        accuracy = (TP + TN) / (TP + FP + TN + FN) if TP + FP + TN + FN > 0 else 0
+        precision = TP / (TP + FP) if TP + FP > 0 else 0
+        recall = TP / (TP + FN) if TP + FN > 0 else 0
 
-    accuracy = (TP + TN) / (TP + FP + TN + FN)
-    precision = TP / (TP + FP)
-    recall = TP / (TP + FN)
+        f1 = 2 * precision * recall / (precision + recall) if precision + recall > 0 else 0
 
-    f1 = 2 * precision * recall / (precision + recall)
+        metrics = {"accuracy":accuracy,"precision": precision, "recall": recall, "f1": f1}
 
-    metrics = {"accuracy":accuracy,"precision": precision, "recall": recall, "f1": f1}
-
-    details = {
-        "w_target":w_target,
-        "pos_target":info_target['pos'],
-        "neg_target":info_target['neg'],
-        "pos_non_target":info_non_target['pos'],
-        "neg_non_target":info_non_target['neg'],
-        "score_target":score_target,
-        "score_non_target":score_non_target,
-        "acccuracy":accuracy,
-        "precision":precision,
-        "recall":recall,
-        "f1":f1,
-    }
-    return metrics, details
+        details = {
+            "w_target":w_target,
+            "pos_target":info_target['pos'],
+            "neg_target":info_target['neg'],
+            "pos_non_target":info_non_target['pos'],
+            "neg_non_target":info_non_target['neg'],
+            "score_target":score_target,
+            "score_non_target":score_non_target,
+            "acccuracy":accuracy,
+            "precision":precision,
+            "recall":recall,
+            "f1":f1,
+        }
+        return metrics, details
 
 ###################
 # Sensitivity Max #
