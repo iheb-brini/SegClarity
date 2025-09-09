@@ -81,6 +81,7 @@ def generate_model(
             )
             # load model weights state_dict
             model.load_state_dict(checkpoint["model_state_dict"])
+            print("Model loaded successfully")
         except:
-            ValueError("Checkpoint not found!")
+            raise ValueError("Checkpoint not found!")
     return model
