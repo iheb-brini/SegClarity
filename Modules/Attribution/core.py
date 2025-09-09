@@ -67,5 +67,4 @@ def generateAttributions(x, model, target, method, layer,device=DEFAULT_DEVICE, 
         print("Max", gc_attr.max())
         print("Min", gc_attr.min())
 
-    print(f"gc_attr.shape {gc_attr.shape}")
     return gc_attr.sum(dim=1, keepdim=True)

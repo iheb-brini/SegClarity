@@ -224,6 +224,28 @@ def visualize_image(image_batch):
 
 
 
+def visualize_image(image_batch,fig = None, ax = None,save_file=None):
+
+    # Plot the image
+    if fig is None and ax is None:
+        fig,ax = plt.subplots()
+        ax.set_axis_off()
+    # Plot the image
+
+    # Restore original image
+    image_batch  = ((image_batch.squeeze().detach().cpu() + 1) / 2)
+    image_batch  = image_batch * (image_batch.max() - image_batch.min()) + image_batch.min()
+
+    ax.imshow(image_batch.squeeze().permute([1,2,0]).detach().cpu().numpy());ax.axis("off");ax.set_title('Image')
+    
+    fig.tight_layout()
+    fig.show()
+
+    if save_file is not None:
+        plt.gcf().savefig(save_file, bbox_inches='tight', pad_inches = 0.0, dpi=200)
+
+
+
 
 def visualize_image_and_mask(image_batch,mask_batch,dataset_type='UTP',fig = None, axes = None,save_file=None):
     if mask_batch.dim() == 3 and mask_batch.size(0) == 1:

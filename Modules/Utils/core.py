@@ -65,14 +65,24 @@ def normalize_scaler(v,v_min = None,v_max=None):
 def identity(v):
     return v
 
+def normalize_log(attr:torch.Tensor)->torch.Tensor:
+    """
+    Normalize the attribute tensor using log10
+    """
+    attr_log = torch.zeros_like(attr)
+    attr_log[attr>1] = torch.log10(attr[attr>1])
+    attr_log[attr<-1] = - torch.log10(-attr[attr<-1])
+    return attr_log
+
 class Normalizations(Enum):
     normalize_0_1 = 'normalize_0_1'
     normalize_m1_1 = 'normalize_m1_1'
     normalize_a_b = 'normalize_a_b'
     normalize_non_shifting_zero = 'normalize_non_shifting_zero'
     normalize_scaler = 'normalize_scaler'
+    normalize_log = 'normalize_log'
     identity = 'identity'
-
+    
     def pick(name):
         try:
             if type(name)== type(''):
@@ -80,3 +90,25 @@ class Normalizations(Enum):
             return eval(name.value)
         except:
             print('Normalization undefined')
+            
+
+def get_layer_by_name(model, layer_name):
+    for name, module in model.named_modules():
+        if layer_name in name:
+            return module
+        
+
+def clip_fixed_percentage(v, p=0.1, replace_with_zero=False):
+    new_v = v.clone().flatten()
+    N = 1
+    for i in range(len(new_v.shape)):
+        N *= new_v.shape[i]
+    x, indices = torch.sort(new_v)
+    w = int(N * p)
+
+    if len(v[v>0]) >= w:
+        new_v[indices[0:w]] = x[w] if not replace_with_zero else 0
+    if len(v[v<0]) >= w:
+        new_v[indices[-w:]] = x[-1 - w] if not replace_with_zero else 0
+
+    return new_v.reshape(v.shape)
