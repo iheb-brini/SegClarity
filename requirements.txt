@@ -2,11 +2,13 @@ matplotlib
 numpy
 opencv-python
 pandas
-pillow
+Pillow
 scikit-learn
 scipy
---extra-index-url https://download.pytorch.org/whl/cu126
-torch==2.8.0
-torchvision==0.23.0
+scikit-image
+albumentations
+pytest
+torch==2.0.1
+torchvision==0.15.2
 tqdm==4.67.1
 captum==0.7.0
