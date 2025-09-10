@@ -3,12 +3,13 @@ Original implementation is found in https://github.com/aimagelab/ADCC
 """
 
 from abc import ABC, abstractmethod
-from typing import Callable, List
-from .tools import isNaN, pcc,pcc_cuda,jaccard_index,_fast_hist
+from typing import Callable
+from .tools import isNaN, pcc_cuda,jaccard_index,_fast_hist,generate_random_squares
 from torch.nn.functional import softmax
 from torch import clip
 import torch
-from captum.metrics import infidelity,sensitivity_max
+from tqdm import tqdm
+from captum.metrics import sensitivity_max
 from Modules.Attribution import generateAttributions
 
 
@@ -277,21 +278,22 @@ class ACSMetric(Metric):
 ###################
 
 
-class SensitivityMax:
+class SensitivityMaxMetric(Metric):
     def __init__(self, n_perturb_samples=5,
                 perturb_radius=0.02,
                 max_examples_per_batch=1) -> None:
         self.n_perturb_samples = n_perturb_samples
         self.perturb_radius = perturb_radius
         self.max_examples_per_batch=max_examples_per_batch
-
+        super().__init__('sensitivity_max')
+        
     def explanation_func(self,x, model, method, layer, **kwargs):
         target = kwargs.get('target',None)
         return generateAttributions(
             x[0], model, target=target, method=method, layer=layer
         )
 
-    def compute(self,x,model,method,layer,target):
+    def calculate(self,x,model,method,layer,target):
         return sensitivity_max(
                 explanation_func=self.explanation_func,
                 inputs=x,
@@ -303,3 +305,48 @@ class SensitivityMax:
                 layer=layer,
                 max_examples_per_batch=self.max_examples_per_batch
         )
+        
+        
+
+##############
+# Infidelity #
+##############
+
+class InfidelityMetric(Metric):
+    def __init__(self) -> None:
+        super().__init__('infidelity')
+
+    def calculate(self, model, image_batch, mask_batch, selected_target, attr, n_samples, **kwargs):
+
+        n_squares = kwargs.get('n_squares', 50)
+        size = kwargs.get('size', 10)
+        
+        infidelity_score_sum = 0
+        
+        n_pixels_GT = (mask_batch == selected_target).sum()
+        pred_on_image = model(image_batch)[:, selected_target].detach().cpu()
+        attr = normalizer_no_shift(attr)
+        attr_interp = LayerAttribution.interpolate(attr, image_batch.shape[-2:])
+
+        for _ in tqdm(range(n_samples)):
+            squares = generate_random_squares(*mask_batch.shape[-2:], n_squares, size)
+
+            M = torch.zeros_like(mask_batch)
+            for square in squares:
+                M[:, square.y:square.y+square.size, square.x:square.x+square.size] = 1
+
+            targeted_mask = torch.where(mask_batch == selected_target, torch.ones_like(mask_batch), torch.zeros_like(mask_batch))
+
+            
+            perturbed_image = image_batch * (1 - M * targeted_mask)
+            pred_on_perturbed_image = model(perturbed_image)[:, selected_target].detach().cpu()
+            
+    
+            attr_on_perturbations = (attr_interp * (M * targeted_mask)).detach().cpu()
+            
+
+            diff = (pred_on_image - pred_on_perturbed_image - attr_on_perturbations)
+            infidelity_score = diff.pow(2).sum()
+            infidelity_score_sum += infidelity_score / n_pixels_GT
+            
+        return infidelity_score_sum / n_samples

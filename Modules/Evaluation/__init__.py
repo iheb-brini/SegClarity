@@ -2,9 +2,9 @@ from .core import (ComplexityMetric,
                    CoherencyMetric,
                    AverageDropMetric, AverageDropIoUMetric,
                    ADCCMetric,
-                   SensitivityMax,
+                   SensitivityMaxMetric,
                    ACSMetric,
                    CompletenessMetric, PointingGameMetric, FaithfulnessMetric,
-                   ContentHeatmapMetric)
+                   ContentHeatmapMetric, InfidelityMetric)
 
-from .tools import calculate_explanation_map
+from .tools import calculate_explanation_map,generate_random_squares,Square
