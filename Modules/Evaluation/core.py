@@ -322,8 +322,12 @@ class InfidelityMetric(Metric):
         size = kwargs.get('size', 10)
         
         infidelity_score_sum = 0
-        h, w = mask_batch.shape[-2:]
+        
+        n_pixels_GT = (mask_batch == selected_target).sum()
         pred_on_image = model(image_batch)[:, selected_target].detach().cpu()
+        attr = normalizer_no_shift(attr)
+        attr_interp = LayerAttribution.interpolate(attr, image_batch.shape[-2:])
+
         for _ in tqdm(range(n_samples)):
             squares = generate_random_squares(*mask_batch.shape[-2:], n_squares, size)
 
@@ -338,13 +342,11 @@ class InfidelityMetric(Metric):
             pred_on_perturbed_image = model(perturbed_image)[:, selected_target].detach().cpu()
             
     
-            
-            attr_interp = LayerAttribution.interpolate(attr, image_batch.shape[-2:])
             attr_on_perturbations = (attr_interp * (M * targeted_mask)).detach().cpu()
             
 
             diff = (pred_on_image - pred_on_perturbed_image - attr_on_perturbations)
             infidelity_score = diff.pow(2).sum()
-            infidelity_score_sum += infidelity_score / (h * w)
+            infidelity_score_sum += infidelity_score / n_pixels_GT
             
         return infidelity_score_sum / n_samples
