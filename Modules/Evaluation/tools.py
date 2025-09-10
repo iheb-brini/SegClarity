@@ -94,3 +94,27 @@ def calculate_explanation_map(inp, saliency_map, normalize_map, device):
         return zeros_like(inp).to(device)
     
     return inp.to(device)*normalize_map(saliency_map).to(device)
+
+
+from typing import List
+import numpy as np
+class Square:
+    """A square object with x, y coordinates and size,
+    x: x coordinate of the square top left corner
+    size: size of the square
+    """
+    def __init__(self,x,y, size):
+        self.x = x
+        self.y = y
+        self.size = size
+    
+    def __repr__(self):
+        return f"Square(x={self.x},y={self.y},size={self.size})"
+
+def generate_random_squares(h,w,n_squares, size) -> List[Square]:
+    squares = []
+    for i in range(n_squares):
+        x = np.random.randint(0,w)
+        y = np.random.randint(0,h)
+        squares.append(Square(x,y,size))
+    return squares
