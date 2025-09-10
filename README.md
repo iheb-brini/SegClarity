@@ -129,7 +129,11 @@ datasets/cityscapes/
 ## Running Experiments
 
 ### Jupyter Notebooks
+Install `Jupyter notebook` (if missing):
 
+```bash
+pip install jupyter notebook 
+```
 Start Jupyter and run the experiment notebooks:
 
 ```bash
@@ -168,7 +172,7 @@ Each notebook allows you to configure:
 
 ## System Requirements
 
-- **Python**: 3.8 or higher
+- **Python**: >=3.10, <3.13
 - **CUDA**: 12.6 (optional, for GPU acceleration)
 - **RAM**: 8GB minimum, 16GB recommended
 - **Storage**: 15GB for datasets and models
