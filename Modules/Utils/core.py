@@ -34,8 +34,13 @@ def normalize_non_shifting_zero(v,epsilon=0,v_min = None,v_max=None):
     """
     v_max = v.max() if v_max is None else v_max
     v_min = v.min() if v_min is None else v_min
+
+    zero = torch.tensor(0., device=v.device, dtype=v.dtype)
+    epsilon = torch.tensor(epsilon, device=v.device, dtype=v.dtype)
+    v_max = torch.tensor(v_max, device=v.device, dtype=v.dtype)
+    v_min = torch.tensor(v_min, device=v.device, dtype=v.dtype)
     
-    v = torch.where(abs(v)<=epsilon,0,v)
+    v = torch.where(abs(v)<=epsilon,zero,v)
     
     if ((v_max != 0) and (v_min != 0)):
         return torch.where(v > 0, v/v_max, v/(-v_min))
@@ -115,8 +120,9 @@ def clip_fixed_percentage(v, p=0.1, replace_with_zero=False):
 
 
 def apply_otsu(attr):
-    attr_pos = torch.where(attr>0,attr,0)
-    attr_neg= torch.where(attr<0,attr,0)
+    zero = torch.tensor(0., device=attr.device, dtype=attr.dtype)
+    attr_pos = torch.where(attr>0,attr,zero)
+    attr_neg= torch.where(attr<0,attr,zero)
     threshold_pos,threshold_neg = None,None
     if attr_pos.max()>0:
         try:
@@ -124,17 +130,17 @@ def apply_otsu(attr):
         except:
             threshold_pos = [attr_pos.max().item(),attr_pos.max().item()]
         if threshold_pos[1]>=attr_pos.max():
-            attr_pos = torch.where(attr_pos>0,attr_pos,0)
+            attr_pos = torch.where(attr_pos>0,attr_pos,zero)
         else:
-            attr_pos = torch.where(attr_pos>threshold_pos[1],attr_pos,0)
+            attr_pos = torch.where(attr_pos>threshold_pos[1],attr_pos,zero)
     if attr_neg.min()<0:
         try:
             threshold_neg = threshold_multiotsu(attr_neg.detach().cpu().numpy())
         except:
             threshold_neg = [attr_neg.min().item(),attr_neg.min().item()]
         if threshold_neg[0]<=attr_neg.min():
-            attr_neg = torch.where(attr_neg<0,attr_neg,0)
+            attr_neg = torch.where(attr_neg<0,attr_neg,zero)
         else:
-            attr_neg = torch.where(attr_neg<threshold_neg[0],attr_neg,0)
+            attr_neg = torch.where(attr_neg<threshold_neg[0],attr_neg,zero)
     attr_otsu = attr_pos + attr_neg
     return attr_otsu,{'threshold_pos':threshold_pos,'threshold_neg':threshold_neg}

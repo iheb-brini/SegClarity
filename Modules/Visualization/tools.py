@@ -7,9 +7,13 @@ def split_components(attr,zero_threshold=0.05):
     """
     Split attribution into positive,negative and zero components
     """
-    pv= torch.where(attr > zero_threshold, attr, 0)
-    nv= torch.where(attr < zero_threshold, -attr, 0)
-    zv = torch.where(((attr > -zero_threshold) & (attr<zero_threshold)), 0.9, 0)
+    # this is a fix for old torch versions
+    zero = torch.tensor(0., device=attr.device, dtype=attr.dtype)
+    high = torch.tensor(0.9, device=attr.device, dtype=attr.dtype)
+    
+    pv= torch.where(attr > zero_threshold, attr, zero)
+    nv= torch.where(attr < zero_threshold, -attr, zero)
+    zv = torch.where(((attr > -zero_threshold) & (attr<zero_threshold)), high, zero)
     return pv,nv,zv
 
 def generate_custom_heatmap_with_pil(attr,sign='all'):
