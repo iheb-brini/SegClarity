@@ -13,6 +13,9 @@ RUN pip install -r requirements.txt
 RUN pip install jupyter notebook
 RUN pip install jupyterlab ipywidgets
 
+RUN pip uninstall -y opencv-python opencv opencv-contrib-python opencv-contrib-python-headless opencv-python-headless
+RUN pip install --no-cache-dir "opencv-contrib-python==4.8.0.74"
+
 EXPOSE 8888
 
 # Copy only code (datasets/models excluded via .dockerignore)
