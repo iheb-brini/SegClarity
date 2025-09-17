@@ -1,0 +1,14 @@
+services:
+  segclarity:
+    build: .
+    container_name: segclarity-container
+    volumes:
+      - .:/app
+      - ./datasets:/app/datasets
+      - ./models:/app/models
+#      - ./Notebooks:/app/Notebooks   # mount notebooks
+    ports:
+      - "8888:8888"
+    stdin_open: true
+    tty: true
+    gpus: all   # works with Docker Compose v2
