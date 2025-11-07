@@ -351,8 +351,8 @@ class MiSuRe:
         X_SR: torch.Tensor,
         M_SR: torch.Tensor,
         target_class: int,
-        logger: logging.Logger,
-    ) -> torch.Tensor:
+        logger: Optional[logging.Logger] = None,
+    ) -> Tuple[torch.Tensor, Dict[str, List[float]]]:
         """Optimize mask to find minimally sufficient region (Stage 2).
 
         Args:
@@ -361,9 +361,12 @@ class MiSuRe:
             X_SR (torch.Tensor): Sufficient region masked image.
             M_SR (torch.Tensor): Sufficient region mask (initialization).
             target_class (int): Target class to explain.
+            logger (Optional[logging.Logger]): Logger for tracking losses.
 
         Returns:
-            torch.Tensor: Optimized minimally sufficient mask (M_MSR).
+            Tuple containing:
+                - Optimized minimally sufficient mask (M_MSR)
+                - Loss history dictionary with keys: 'total', 'sparsity', 'tv', 'dice'
         """
         # Get original prediction for reference
         with torch.no_grad():
@@ -374,6 +377,14 @@ class MiSuRe:
 
         # Setup optimizer
         optimizer = torch.optim.AdamW([M], lr=self.learning_rate)
+
+        # Initialize loss history
+        loss_history = {
+            "total": [],
+            "sparsity": [],
+            "tv": [],
+            "dice": [],
+        }
 
         # Optimization loop
         for iteration in range(self.n_iterations):
@@ -404,6 +415,22 @@ class MiSuRe:
             # Total loss
             total_loss = sparsity_loss + tv_loss + dice_loss
 
+            # Store loss values
+            loss_history["total"].append(total_loss.item())
+            loss_history["sparsity"].append(sparsity_loss.item())
+            loss_history["tv"].append(tv_loss.item())
+            loss_history["dice"].append(dice_loss.item())
+
+            # Log losses
+            if logger is not None and iteration % 10 == 0:
+                logger.info(
+                    f"Iteration {iteration}/{self.n_iterations}: "
+                    f"Total Loss={total_loss.item():.6f}, "
+                    f"Dice Loss={dice_loss.item():.6f}, "
+                    f"Sparsity Loss={sparsity_loss.item():.6f}, "
+                    f"TV Loss={tv_loss.item():.6f}"
+                )
+
             # Backpropagation
             total_loss.backward()
             optimizer.step()
@@ -413,7 +440,17 @@ class MiSuRe:
                 M.data = torch.clamp(M.data, 0.0, 1.0)
                 M.data[M.data < 0.2] = 0.0
 
-        return M.detach()
+        # Log final losses
+        if logger is not None:
+            logger.info(
+                f"Final Iteration {self.n_iterations}: "
+                f"Total Loss={loss_history['total'][-1]:.6f}, "
+                f"Dice Loss={loss_history['dice'][-1]:.6f}, "
+                f"Sparsity Loss={loss_history['sparsity'][-1]:.6f}, "
+                f"TV Loss={loss_history['tv'][-1]:.6f}"
+            )
+
+        return M.detach(), loss_history
 
     def compute_saliency(
         self,
@@ -421,6 +458,7 @@ class MiSuRe:
         X: torch.Tensor,
         target_class: int,
         return_details: bool = False,
+        logger: Optional[logging.Logger] = None,
     ) -> Dict[str, Any]:
         """Compute MiSuRe saliency maps (full two-stage pipeline).
 
@@ -429,6 +467,7 @@ class MiSuRe:
             X (torch.Tensor): Input image tensor.
             target_class (int): Target class to explain.
             return_details (bool): Whether to return detailed outputs.
+            logger (Optional[logging.Logger]): Logger for tracking optimization losses.
 
         Returns:
             Dictionary containing:
@@ -436,15 +475,28 @@ class MiSuRe:
                 - saliency_sr: Sufficient region saliency map (coarse)
                 - mask_msr: Minimally sufficient region mask
                 - mask_sr: Sufficient region mask
+                - loss_history: Dictionary of loss values over iterations
                 - n_dilations: Number of dilations performed (if return_details=True)
         """
         # Stage 1: Generate sufficient region
+        if logger is not None:
+            logger.info(f"Stage 1: Generating sufficient region for class {target_class}...")
+
         X_SR, M_SR, n_dilations = self.generate_sufficient_region(
             model, X, target_class
         )
 
+        if logger is not None:
+            logger.info(f"Stage 1 complete: {n_dilations} dilations performed")
+            logger.info(f"Stage 2: Optimizing mask for minimally sufficient region...")
+
         # Stage 2: Optimize for minimally sufficient region
-        M_MSR = self.optimize_mask(model, X, X_SR, M_SR, target_class)
+        M_MSR, loss_history = self.optimize_mask(
+            model, X, X_SR, M_SR, target_class, logger
+        )
+
+        if logger is not None:
+            logger.info(f"Stage 2 complete: Optimization finished")
 
         # Generate final saliency maps
         saliency_sr = M_SR
@@ -456,6 +508,7 @@ class MiSuRe:
             "saliency_sr": saliency_sr,
             "mask_msr": M_MSR,
             "mask_sr": M_SR,
+            "loss_history": loss_history,
         }
 
         if return_details:
