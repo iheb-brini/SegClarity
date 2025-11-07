@@ -1,6 +1,5 @@
 numpy==1.26.4
 matplotlib
-opencv-python==4.8.0.74
 pandas
 Pillow
 scikit-learn
@@ -13,3 +12,5 @@ torchvision
 tqdm==4.67.1
 captum==0.7.0
 numpy
+ipykernel
+opencv-python==4.8.0.74
