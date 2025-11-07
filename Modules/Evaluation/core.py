@@ -108,6 +108,49 @@ class CompletenessMetric(Metric):
         return completeness
 
 
+class DiceMetric(Metric):
+    def __init__(self, smooth: float = 1e-6) -> None:
+        super().__init__('dice')
+        self.smooth = smooth
+
+    def calculate(self, pred_mask: torch.Tensor, gt_mask: torch.Tensor, target_class: int = None) -> float:
+        """
+        Calculate Dice coefficient between predicted and ground truth masks.
+
+        Args:
+            pred_mask: Predicted segmentation mask (can be logits or class indices)
+            gt_mask: Ground truth segmentation mask
+            target_class: Specific class to compute Dice for (if None, compute for binary masks)
+
+        Returns:
+            Dice coefficient (float between 0 and 1)
+        """
+        if len(pred_mask.shape) > 2 and pred_mask.shape[0] > 1:
+            pred_mask = torch.argmax(pred_mask, dim=0)
+
+        pred_mask = pred_mask.squeeze()
+        gt_mask = gt_mask.squeeze()
+
+        if pred_mask.shape != gt_mask.shape:
+            pred_mask = LayerAttribution.interpolate(
+                pred_mask.unsqueeze(0).unsqueeze(0), gt_mask.shape[-2:]
+            ).squeeze()
+
+        if target_class is not None:
+            pred_binary = (pred_mask == target_class).float()
+            gt_binary = (gt_mask == target_class).float()
+        else:
+            pred_binary = pred_mask.float()
+            gt_binary = gt_mask.float()
+
+        intersection = (pred_binary * gt_binary).sum()
+        union = pred_binary.sum() + gt_binary.sum()
+
+        dice = (2.0 * intersection + self.smooth) / (union + self.smooth)
+
+        return dice.item()
+
+
 class PointingGameMetric(Metric):
     def __init__(self) -> None:
         super().__init__('pointing_game')
