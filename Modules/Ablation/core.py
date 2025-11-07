@@ -435,10 +435,35 @@ class MiSuRe:
             total_loss.backward()
             optimizer.step()
 
-            # Clamp mask values: < 0.2 -> 0, clip to [0, 1]
+            # Clamp mask values during optimization: only clip to [0, 1], use gentle threshold
             with torch.no_grad():
                 M.data = torch.clamp(M.data, 0.0, 1.0)
-                M.data[M.data < 0.2] = 0.0
+                # Use a very small threshold during optimization to avoid killing gradients
+                M.data[M.data < 0.01] = 0.0
+
+        # Final thresholding: apply 0.2 threshold only at the end
+        with torch.no_grad():
+            M.data = torch.clamp(M.data, 0.0, 1.0)
+            M_temp = M.data.clone()
+            M_temp[M_temp < 0.2] = 0.0
+
+            # Safety check: if final thresholding would zero out the entire mask, use lower threshold
+            if M_temp.sum() == 0:
+                if logger is not None:
+                    logger.warning(
+                        "Final threshold 0.2 would zero entire mask! "
+                        "Using adaptive threshold instead."
+                    )
+                # Find a threshold that keeps at least some values
+                sorted_vals = M.data.flatten().sort(descending=True)[0]
+                # Keep at least top 5% of values
+                threshold_idx = max(1, int(0.05 * sorted_vals.numel()))
+                adaptive_threshold = sorted_vals[threshold_idx].item()
+                M.data[M.data < adaptive_threshold] = 0.0
+                if logger is not None:
+                    logger.info(f"Adaptive threshold used: {adaptive_threshold:.6f}")
+            else:
+                M.data = M_temp
 
         # Log final losses
         if logger is not None:
@@ -448,6 +473,12 @@ class MiSuRe:
                 f"Dice Loss={loss_history['dice'][-1]:.6f}, "
                 f"Sparsity Loss={loss_history['sparsity'][-1]:.6f}, "
                 f"TV Loss={loss_history['tv'][-1]:.6f}"
+            )
+            logger.info(
+                f"Final mask stats: "
+                f"Mean={M.data.mean().item():.6f}, "
+                f"Non-zero ratio={((M.data > 0).sum().float() / M.data.numel()).item():.4f}, "
+                f"Max={M.data.max().item():.6f}"
             )
 
         return M.detach(), loss_history
