@@ -1,6 +1,6 @@
 #custom 
 tmp
-datasets
+datasets/*
 models
 output
 
