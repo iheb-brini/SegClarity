@@ -1,212 +1,208 @@
-# SegClarity
+# SegClarity  
+**Semantic Segmentation & Explainable AI Framework for Documents and Urban Scenes**
 
-SegClarity is a comprehensive framework for semantic segmentation with explainable AI capabilities, supporting both document segmentation and urban scene understanding tasks.
+[![Python](https://img.shields.io/badge/Python-3.10--3.12-blue)]()  
+[![PyTorch](https://img.shields.io/badge/PyTorch-CUDA%2012.6-orange)]()  
+[![License](https://img.shields.io/badge/License-MIT-green.svg)]()  
+[![Paper](https://img.shields.io/badge/MDPI-Published-purple)](https://www.mdpi.com/2313-433X/11/12/424)
 
-## Overview
+SegClarity is a unified framework designed for **semantic segmentation** and **explainable AI**, supporting both:
+- **Document Layout Analysis**
+- **Urban Scene Understanding (Cityscapes)**
 
-This project provides:
-- **Document Segmentation**: Models trained on UTP and splitAB1 datasets for document layout analysis
-- **Urban Scene Segmentation**: Models trained on Cityscapes dataset for street scene understanding
-- **Explainable AI**: Attribution methods for understanding model decisions
-- **Visualization Tools**: Comprehensive visualization of predictions and attributions
+It provides pre-trained models, attribution methods, visualization utilities, and experiment notebooks.
 
-## Project Structure
+---
+
+## ✨ Features
+
+### 🗂 Document Segmentation
+- Models trained on **UTP** and **splitAB1** datasets  
+- Layout segmentation using UNet & LUNet architectures  
+
+### 🏙 Urban Scene Segmentation
+- UNet models trained on **Cityscapes**  
+- Full semantic segmentation pipeline  
+
+### 🔍 Explainable AI
+- Attribution methods via **Captum**  
+- Integrated Gradients, GradCAM, Occlusion, and more  
+- Visual explainability on documents & scenes  
+
+### 📊 Visualization Tools
+- Side-by-side predictions  
+- Attribution heatmaps  
+- Overlay masks, saliency, and class‑wise contributions  
+
+---
+
+## 📁 Project Structure
 
 ```
 SegClarity/
-├── Modules/                    # Core framework modules
-│   ├── Architecture/          # Model architectures (UNet, LUNet)
-│   ├── Dataset/              # Dataset handling utilities
-│   ├── CityscapeDataset/     # Cityscapes-specific dataset tools
-│   ├── ModelXAI/            # Explainable AI methods
-│   ├── Attribution/         # Attribution computation
-│   ├── Visualization/       # Visualization utilities
+├── Modules/
+│   ├── Architecture/         # UNet, LUNet implementations
+│   ├── Dataset/              # Dataset loaders & transforms
+│   ├── CityscapeDataset/     # Cityscapes utilities
+│   ├── ModelXAI/             # Explainable AI methods
+│   ├── Attribution/          # Attribution pipeline
+│   ├── Visualization/        # Plotting & rendering utils
 │   └── ...
-├── Notebooks/                # Jupyter notebooks for experiments
-│   ├── 01_Model_predictions_on_documents.ipynb
-│   ├── 02_Model_predictions_on_cityscapes.ipynb
-│   ├── 03_Attributions_on_documents.ipynb
-│   └── 04_Attributions_on_cityscapes.ipynb
-├── models/                   # Pre-trained model weights
-├── datasets/                 # Dataset storage
-└── requirements.txt          # Python dependencies
+├── Notebooks/                # Experiment notebooks
+├── models/                   # Pre-trained weights
+├── datasets/                 # Document datasets
+└── requirements.txt
 ```
 
-## Setup Instructions
+---
 
-### 1. Clone the Repository
+## 🚀 Installation
 
+### 1. Clone the repository
 ```bash
 git clone https://github.com/iheb-brini/SegClarity.git
 cd SegClarity
 ```
 
-### 2. Install Dependencies
-
-Create a virtual environment and install the required packages:
-
+### 2. Create a virtual environment
 ```bash
-# Create virtual environment
 python -m venv .venv
-source .venv/bin/activate  # On Windows: venv\Scripts\activate
+source .venv/bin/activate   # Windows: .venv\Scripts\activate
+```
 
-# Install dependencies
+### 3. Install dependencies
+```bash
 pip install -r requirements.txt
 ```
 
-**Note**: The requirements include PyTorch with CUDA 12.6 support. If you don't have CUDA or need a different version, modify the PyTorch installation in `requirements.txt`.
+📌 *Note: Requirements include PyTorch with CUDA 12.6. Adjust if needed.*
 
-**Key Dependencies**:
-- **PyTorch & TorchVision**: Deep learning framework with CUDA support
-- **Captum**: Model interpretability and attribution methods
-- **Albumentations**: Advanced image augmentation library (used for Cityscapes)
-- **Scikit-image**: Image processing utilities (used for Otsu thresholding, resizing)
-- **OpenCV**: Computer vision operations
-- **Matplotlib**: Visualization and plotting
-- **PIL/Pillow**: Image loading and processing
-- **Pytest**: Testing framework (for evaluation modules)
+---
 
-### 3. Download Pre-trained Models
+## 📦 Pre‑trained Models
 
-Download the pre-trained model weights from the releases:
+Download the weights from the release page:  
+https://github.com/iheb-brini/SegClarity/releases/tag/model_weights
 
-```bash
-# Create models directory if it doesn't exist
-mkdir -p models
+Place them under:
 
-# Download model weights from GitHub releases
-# Visit: https://github.com/iheb-brini/SegClarity/releases/tag/model_weights
-# Download the model weights archive and extract to the models/ folder
-```
-
-**Expected model structure after download:**
 ```
 models/
 ├── cityscapes/
-│   └── unet/
-│       └── best_model.pth
 ├── splitAB1/
-│   ├── lunet/
-│   │   ├── finetuned_models_minloss/
-│   │   └── from_scratch_models/
-│   └── unet/
-│       ├── finetuned_models_minloss/
-│       └── from_scratch_models/
 └── UTP/
-    ├── lunet/
-    │   └── from_scratch_models/
-    └── unet/
-        └── from_scratch_models/
 ```
 
-### 4. Download Datasets
+---
 
-#### Document Datasets (UTP and splitAB1)
-The document datasets (UTP and splitAB1) are already included in the repository under the `datasets/` folder.
+## 🗄 Datasets
 
-#### Cityscapes Dataset
-Download the Cityscapes dataset for urban scene segmentation:
+### 📄 Document Datasets (UTP & splitAB1)
+Already included in:
+```
+datasets/
+```
 
-1. **Register and Login**: Visit [Cityscapes Dataset](https://www.cityscapes-dataset.com/file-handling/?packageID=3)
-2. **Download**: Download the following packages:
-   - `leftImg8bit_trainvaltest.zip` (11GB) - Training, validation, and test images
-   - `gtFine_trainvaltest.zip` (241MB) - Fine annotations
-3. **Extract**: Extract the downloaded files to `datasets/cityscapes/`
+### 🏙 Cityscapes Dataset (optional)
+Download from: https://www.cityscapes-dataset.com/file-handling/?packageID=3
 
-**Expected Cityscapes structure:**
+Required files:
+- `leftImg8bit_trainvaltest.zip`
+- `gtFine_trainvaltest.zip`
+
+Extract into:
+
 ```
 datasets/cityscapes/
 ├── leftImg8bit/
-│   ├── train/
-│   ├── val/
-│   └── test/
 └── gtFine/
-    ├── train/
-    ├── val/
-    └── test/
 ```
 
-## Running Experiments
+---
 
-### Jupyter Notebooks
-Install `Jupyter notebook` (if missing):
+## 🧪 Running Experiments
 
+Install Jupyter:
 ```bash
-pip install jupyter notebook 
+pip install jupyter notebook
 ```
-Start Jupyter and run the experiment notebooks:
 
+Run:
 ```bash
 jupyter notebook
 ```
 
-#### Available Notebooks:
+### Provided notebooks:
+- `01_Model_predictions_on_documents.ipynb` — Document segmentation evaluation  
+- `02_Model_predictions_on_cityscapes.ipynb` — Urban scene segmentation  
+- `03_Attributions_on_documents.ipynb` — Document explainability  
+- `04_Attributions_on_cityscapes.ipynb` — Scene explainability  
 
-1. **`01_Model_predictions_on_documents.ipynb`**
-   - Evaluates document segmentation models (LUNet, UNet)
-   - Works with UTP and splitAB1 datasets
-   - Visualizes predictions vs ground truth
+Each notebook allows configuration of:
+- Dataset  
+- Architecture (UNet / LUNet)  
+- Pretrained model choice  
+- CPU/GPU runtime  
 
-2. **`02_Model_predictions_on_cityscapes.ipynb`**
-   - Evaluates urban scene segmentation models
-   - Works with Cityscapes dataset
-   - Provides semantic segmentation results
+---
 
-3. **`03_Attributions_on_documents.ipynb`**
-   - Computes and visualizes attributions for document models
-   - Uses various XAI methods (GradCAM, Integrated Gradients, etc.)
-   - Analyzes model decision-making on document layouts
+## ⚙️ System Requirements
 
-4. **`04_Attributions_on_cityscapes.ipynb`**
-   - Computes and visualizes attributions for urban scene models
-   - Explains model predictions on street scenes
-   - Provides insights into what the model focuses on
+- **Python** 3.10–3.12  
+- **CUDA 12.6** (optional)  
+- **RAM**: 8GB minimum, 16GB recommended  
+- **Disk**: ~15GB for datasets + models  
 
-### Notebook Configuration
+---
 
-Each notebook allows you to configure:
-- **Dataset type**: Choose between available datasets
-- **Model architecture**: Select UNet or LUNet
-- **Model variant**: Choose from-scratch or fine-tuned models
-- **Device**: CPU or GPU (if available)
+## ❗ Troubleshooting
 
-## System Requirements
+### 1. CUDA Out of Memory
+- Reduce batch size  
+- Use CPU mode  
 
-- **Python**: >=3.10, <3.13
-- **CUDA**: 12.6 (optional, for GPU acceleration)
-- **RAM**: 8GB minimum, 16GB recommended
-- **Storage**: 15GB for datasets and models
+### 2. Missing Model Weights
+Ensure the structure is:
+```
+models/<dataset>/<architecture>/<model>.pth
+```
 
-## Troubleshooting
+### 3. Dataset Not Found
+Check path:
+```
+datasets/<dataset-name>/
+```
 
-### Common Issues:
+### 4. Import Errors
+Reinstall dependencies:
+```bash
+pip install -r requirements.txt
+```
 
-1. **CUDA Out of Memory**: Reduce batch size or use CPU
-2. **Missing Models**: Ensure model weights are downloaded and placed in correct directories
-3. **Dataset Not Found**: Verify dataset paths and structure
-4. **Import Errors**: Check that all dependencies are installed correctly
+---
 
-### Getting Help:
+## 📚 Citation
 
-- Check the notebook documentation for specific usage instructions
-- Verify file paths and directory structures match the expected layout
-- Ensure all dependencies are properly installed
-
-<!-- 
-## Citation
-
-If you use this work in your research, please cite:
+If you use **SegClarity** in your research, please cite:
 
 ```bibtex
-@software{segclarity,
-  title={SegClarity: Semantic Segmentation with Explainable AI},
-  author={Iheb Brini},
-  year={2025},
-  url={https://github.com/iheb-brini/SegClarity}
+@article{Brini2025SegClarity,
+  author    = {Iheb Brini and others},
+  title     = {SegClarity: Semantic Segmentation with Explainable AI},
+  journal   = {Journal of Imaging},
+  volume    = {11},
+  number    = {12},
+  pages     = {424},
+  year      = {2025},
+  publisher = {MDPI},
+  doi       = {10.3390/jimaging11120424},
+  url       = {https://www.mdpi.com/2313-433X/11/12/424}
 }
 ```
 
-## License
+---
 
-This project is licensed under the terms specified in the [LICENSE](LICENSE) file.
--->
+## 📄 License
+
+This project is licensed under the **MIT License**.  
+See the `LICENSE` file for more information.
